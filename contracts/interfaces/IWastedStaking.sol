@@ -21,9 +21,9 @@ interface IWastedStaking {
         address staker
     );
     event Claimed(
-        uint256[] indexed warriorIds,
-        uint256 indexed poolId,
-        address staker
+        address staker,
+        uint256 poolId,
+        uint256[] warriorIds
     );
 
     struct WastedPool {

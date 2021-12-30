@@ -10,23 +10,22 @@ import "./interfaces/IWastedStaking.sol";
 import "./utils/PermissionGroup.sol";
 
 contract WastedStaking is PermissionGroup, IWastedStaking, IERC721Receiver {
-    using EnumerableSet for EnumerableSet.UintSet;
     using SafeMath for uint256;
 
     struct Staker {
         uint256 timeStartLock;
         uint256 timeClaim;
-        EnumerableSet.UintSet warriorIds;
+        uint256[] warriorIds;
     }
 
     WastedPool[] public _pools;
 
     IWastedWarrior public warriorContract;
-    mapping(address => mapping(uint256 => Staker)) _stakers;
-    mapping(address => uint256) _warriorOnStake;
+    mapping(address => mapping(uint256 => Staker)) public _stakers;
     uint256 public feeClaim;
+    uint256[] private helper;
 
-    constructor(IWastedWarrior warriorAddress, uint256 feeClaim_) {
+    constructor (IWastedWarrior warriorAddress, uint256 feeClaim_) {
         warriorContract = warriorAddress;
         feeClaim = feeClaim_;
     }
@@ -129,7 +128,7 @@ contract WastedStaking is PermissionGroup, IWastedStaking, IERC721Receiver {
                 address(this),
                 warriorIds[i]
             );
-            staker.warriorIds.add(warriorIds[i]);
+            staker.warriorIds.push(warriorIds[i]);
             pool.staked = pool.staked.add(1);
         }
 
@@ -139,7 +138,7 @@ contract WastedStaking is PermissionGroup, IWastedStaking, IERC721Receiver {
     function unstake(uint256 poolId) external override {
         Staker storage staker = _stakers[msg.sender][poolId];
         WastedPool storage pool = _pools[poolId];
-        uint256[] memory warriorIds;
+        uint256[] memory warriorIds = staker.warriorIds;
 
         require(
             staker.timeStartLock != 0 && staker.timeClaim != 0,
@@ -150,20 +149,20 @@ contract WastedStaking is PermissionGroup, IWastedStaking, IERC721Receiver {
         staker.timeStartLock = 0;
         staker.timeClaim = 0;
 
-        for (uint256 i = 0; i < staker.warriorIds.length(); i++) {
+        for (uint256 i = 0; i < staker.warriorIds.length; i++) {
             bool _isBlacklisted = warriorContract.getWarriorInBlacklist(
-                staker.warriorIds.at(i)
+                staker.warriorIds[i]
             );
             require(!_isBlacklisted, "WS: warrior blacklisted");
-            warriorContract.safeTransferFrom(
+            warriorContract.transferFrom(
                 address(this),
                 msg.sender,
-                staker.warriorIds.at(i)
+                staker.warriorIds[i]
             );
-            staker.warriorIds.remove(staker.warriorIds.at(i));
-            warriorIds[i] = staker.warriorIds.at(i);
             pool.staked = pool.staked.sub(1);
         }
+        staker.warriorIds = helper;
+        
         emit Unstaked(warriorIds, poolId, msg.sender);
     }
 
@@ -176,29 +175,28 @@ contract WastedStaking is PermissionGroup, IWastedStaking, IERC721Receiver {
             staker.timeStartLock != 0 && staker.timeClaim != 0,
             "WS: address used"
         );
-        require(staker.timeClaim < block.timestamp, "WS: Claim func");
+        require(staker.timeClaim < block.timestamp, "WS: Unstake func");
 
         staker.timeStartLock = 0;
         staker.timeClaim = 0;
 
-        for (uint256 i = 0; i < staker.warriorIds.length(); i++) {
+        for (uint256 i = 0; i < staker.warriorIds.length; i++) {
             bool _isBlacklisted = warriorContract.getWarriorInBlacklist(
-                staker.warriorIds.at(i)
+                staker.warriorIds[i]
             );
             require(!_isBlacklisted, "WS: warrior blacklisted");
-            warriorContract.safeTransferFrom(
+            warriorContract.transferFrom(
                 address(this),
                 msg.sender,
-                staker.warriorIds.at(i)
+                staker.warriorIds[i]
             );
-            staker.warriorIds.remove(staker.warriorIds.at(i));
-            warriorIds[i] = staker.warriorIds.at(i);
         }
+        staker.warriorIds = helper;
 
         (bool isTransferToOwner, ) = owner().call{value: msg.value}("");
         require(isTransferToOwner);
 
-        emit Claimed(warriorIds, poolId, msg.sender);
+        emit Claimed( msg.sender, poolId, warriorIds);
     }
 
     function onERC721Received(

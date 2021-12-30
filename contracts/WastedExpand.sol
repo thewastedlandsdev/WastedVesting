@@ -3,21 +3,25 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./lib/ERC1155.sol";
 import "./interfaces/IWastedExpand.sol";
-import "./utils/PermissionGroup.sol";
 
-contract WastedExpand is ERC1155, IWastedExpand, PermissionGroup {
+contract WastedExpand is ERC1155, IWastedExpand, AccessControl {
     using Address for address;
+
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
+    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     // Mapping from item to its information.
     WastedItem[] private _items;
 
-    constructor(string memory _uri) ERC1155(_uri) {}
+    constructor(string memory _uri) ERC1155(_uri) {
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
 
-    function setURI(string memory uri) external onlyOwner {
+    function setURI(string memory uri) external onlyRole(CONTROLLER_ROLE) {
         _setURI(uri);
     }
 
@@ -25,7 +29,7 @@ contract WastedExpand is ERC1155, IWastedExpand, PermissionGroup {
         string memory name,
         uint16 maxSupply,
         ItemType itemType
-    ) external override onlyOwner {
+    ) external override onlyRole(CONTROLLER_ROLE) {
         require(maxSupply > 0, "WAE: invalid maxSupply");
         _items.push(WastedItem(itemType, name, maxSupply, 0, 0));
         uint256 itemId = _items.length - 1;
@@ -35,9 +39,19 @@ contract WastedExpand is ERC1155, IWastedExpand, PermissionGroup {
 
     function claim(
         address account,
+        uint256[] memory itemIds,
+        uint16[] memory amount
+    ) public override onlyRole(MINTER_ROLE) {
+        for(uint i = 0; i < itemIds.length; i++) {
+            _claim(account, itemIds[i], amount[i]);
+        }
+    }
+
+    function _claim(
+        address account,
         uint256 itemId,
         uint16 amount
-    ) public override onlyOperator returns (bool) {
+    ) private {
         WastedItem storage item = _items[itemId];
 
         require(
@@ -50,14 +64,12 @@ contract WastedExpand is ERC1155, IWastedExpand, PermissionGroup {
 
         emit TransferSingle(msg.sender, address(0), account, itemId, amount);
         emit ItemClaimed(account, itemId, amount);
-
-        return item.minted == item.maxSupply;
     }
 
     function putItemsIntoStorage(address account, uint256[] memory itemIds)
         external
         override
-        onlyOperator
+        onlyRole(OPERATOR_ROLE)
     {
         for (uint256 i = 0; i < itemIds.length; i++) {
             require(
@@ -71,7 +83,7 @@ contract WastedExpand is ERC1155, IWastedExpand, PermissionGroup {
     function returnItems(address account, uint256[] memory itemIds)
         external
         override
-        onlyOperator
+        onlyRole(OPERATOR_ROLE)
     {
         for (uint256 i = 0; i < itemIds.length; i++) {
             _balances[itemIds[i]][account] += 1;
@@ -104,5 +116,15 @@ contract WastedExpand is ERC1155, IWastedExpand, PermissionGroup {
     {
         WastedItem memory item = _items[itemId];
         return item.minted + amount > item.maxSupply;
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override(ERC1155, AccessControl)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }

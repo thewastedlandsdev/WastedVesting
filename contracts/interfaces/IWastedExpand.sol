@@ -40,9 +40,9 @@ interface IWastedExpand {
      */
     function claim(
         address account,
-        uint256 itemId,
-        uint16 amount
-    ) external returns (bool);
+        uint256[] memory itemIds,
+        uint16[] memory amount
+    ) external;
 
     /**
      * @notice Check if item is out of stock.
