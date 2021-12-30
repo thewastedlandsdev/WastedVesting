@@ -169,7 +169,7 @@ contract WastedStaking is PermissionGroup, IWastedStaking, IERC721Receiver {
     function claim(uint256 poolId) external payable override {
         require(msg.value == feeClaim, "WS: not enough");
         Staker storage staker = _stakers[msg.sender][poolId];
-        uint256[] memory warriorIds;
+        uint256[] memory warriorIds = staker.warriorIds;
 
         require(
             staker.timeStartLock != 0 && staker.timeClaim != 0,
