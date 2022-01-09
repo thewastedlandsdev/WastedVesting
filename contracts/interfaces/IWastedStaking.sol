@@ -3,12 +3,6 @@
 pragma solidity ^0.8.0;
 
 interface IWastedStaking {
-    enum RarityWarrior {
-        NORMAL,
-        EPIC,
-        RARE,
-        MYSTIC
-    }
     enum RarityPool {
         NORMAL,
         MYSTIC
@@ -20,6 +14,7 @@ interface IWastedStaking {
         uint256 lockedMonths,
         uint256 totalRewards,
         uint256 maxWarriorPerAddress,
+        uint256 endTime,
         RarityPool rarityPool
     );
     event Staked(
@@ -40,19 +35,23 @@ interface IWastedStaking {
         uint256 totalRewards;
         uint256 staked;
         uint256 maxWarriorPerAddress;
+        uint256 endTime;
         RarityPool rarityPool;
     }
 
     struct Warrior {
         uint256[] warriorIds;
-        RarityWarrior[] rarity;
-        bytes signature;
+        uint8[] rarity;
     }
 
     /**
      * @notice Stake warrior earn nfts.
      */
-    function stake(uint256 poolId, Warrior calldata warrior) external;
+    function stake(
+        uint256 poolId,
+        Warrior calldata warrior,
+        bytes memory signature
+    ) external;
 
     /**
      * @notice Unstake warrior before finish.

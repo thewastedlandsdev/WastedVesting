@@ -21,9 +21,11 @@ contract WastedStaking is
 {
     using SafeMath for uint256;
 
+    address private serverAddress;
     bytes32 public constant SERVER_ROLE = keccak256("SERVER_ROLE");
     string private constant SIGNING_DOMAIN = "LazyStaking-WastedWarrior";
     string private constant SIGNATURE_VERSION = "1";
+    mapping(uint256 => address) public _ownerWarriorById;
 
     struct Staker {
         uint256 timeStartLock;
@@ -46,6 +48,11 @@ contract WastedStaking is
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
+    function setServerAddress(address _serverAddress) external onlyOwner {
+        require(_serverAddress != address(0));
+        serverAddress = _serverAddress;
+    }
+
     function setWastedWarriorContract(IWastedWarrior warriorAddress)
         external
         onlyOwner
@@ -62,11 +69,20 @@ contract WastedStaking is
         return _pools;
     }
 
+    function getWarriorsStaked(address account, uint256 poolId)
+        external
+        view
+        returns (uint256[] memory)
+    {
+        return _stakers[account][poolId].warriorIds;
+    }
+
     function addPool(
         string memory name,
         uint256 lockedMonths,
         uint256 totalRewards,
         uint256 maxWarriorPerAddress,
+        uint256 endTime,
         RarityPool rarityPool
     ) external onlyOwner {
         require(lockedMonths > 0 && totalRewards > 0, "WS: invalid info");
@@ -77,6 +93,7 @@ contract WastedStaking is
                 totalRewards,
                 0,
                 maxWarriorPerAddress,
+                endTime,
                 rarityPool
             )
         );
@@ -87,16 +104,18 @@ contract WastedStaking is
             lockedMonths,
             totalRewards,
             maxWarriorPerAddress,
+            endTime,
             rarityPool
         );
     }
 
-    function udpatePool(
+    function updatePool(
         uint256 poolId,
         string memory name,
         uint256 lockedMonths,
         uint256 totalRewards,
         uint256 maxWarriorPerAddress,
+        uint256 endTime,
         RarityPool rarityPool
     ) external onlyOwner {
         WastedPool storage pool = _pools[poolId];
@@ -109,6 +128,7 @@ contract WastedStaking is
         pool.lockedMonths = lockedMonths;
         pool.totalRewards = totalRewards;
         pool.maxWarriorPerAddress = maxWarriorPerAddress;
+        pool.endTime = endTime;
         pool.rarityPool = rarityPool;
 
         emit Pool(
@@ -117,20 +137,27 @@ contract WastedStaking is
             lockedMonths,
             totalRewards,
             maxWarriorPerAddress,
+            endTime,
             rarityPool
         );
     }
 
-    function stake(uint256 poolId, Warrior calldata warrior) external override {
+    function stake(
+        uint256 poolId,
+        Warrior calldata warrior,
+        bytes memory signature
+    ) external override {
         Staker storage staker = _stakers[msg.sender][poolId];
         WastedPool storage pool = _pools[poolId];
         uint256[] memory warriorIds = warrior.warriorIds;
-        address signer = _verify(warrior);
+        address signer = _verify(warrior, signature);
 
         require(
             hasRole(SERVER_ROLE, signer),
             "WS: Signature invalid or unauthorized"
         );
+
+        require(block.timestamp <= pool.endTime, "WS: pool ended");
 
         require(
             warriorIds.length <= pool.maxWarriorPerAddress,
@@ -144,7 +171,11 @@ contract WastedStaking is
 
         staker.timeStartLock = block.timestamp;
         staker.timeClaim = block.timestamp.add(pool.lockedMonths);
+
         for (uint256 i = 0; i < warriorIds.length; i++) {
+            if (uint256(pool.rarityPool) == 1) {
+                require(warrior.rarity[i] == 4, "WS: invalid warrior");
+            }
             uint256 _isListing = warriorContract.getWarriorListing(
                 warriorIds[i]
             );
@@ -153,6 +184,7 @@ contract WastedStaking is
             );
             require(_isListing == 0, "WS: delist first");
             require(!_isBlacklisted, "WS: warrior blacklisted");
+
             warriorContract.safeTransferFrom(
                 msg.sender,
                 address(this),
@@ -160,6 +192,7 @@ contract WastedStaking is
             );
             staker.warriorIds.push(warriorIds[i]);
             pool.staked = pool.staked.add(1);
+            _ownerWarriorById[warriorIds[i]] = msg.sender;
         }
 
         emit Staked(warriorIds, poolId, msg.sender);
@@ -190,6 +223,7 @@ contract WastedStaking is
                 staker.warriorIds[i]
             );
             pool.staked = pool.staked.sub(1);
+            _ownerWarriorById[warriorIds[i]] = address(0);
         }
         staker.warriorIds = helper;
 
@@ -220,10 +254,11 @@ contract WastedStaking is
                 msg.sender,
                 staker.warriorIds[i]
             );
+            _ownerWarriorById[warriorIds[i]] = address(0);
         }
         staker.warriorIds = helper;
 
-        (bool isTransferToOwner, ) = owner().call{value: msg.value}("");
+        (bool isTransferToOwner, ) = serverAddress.call{value: msg.value}("");
         require(isTransferToOwner);
 
         emit Claimed(msg.sender, poolId, warriorIds);
@@ -235,18 +270,61 @@ contract WastedStaking is
                 keccak256(
                     abi.encode(
                         keccak256(
-                            "Warrior(uint256[] warriorIds, RarityWarrior[] rarity)"
+                            "Warrior(uint256[] warriorIds,uint8[] rarity)"
                         ),
-                        warrior.warriorIds,
-                        warrior.rarity
+                        keccak256(abi.encodePacked(warrior.warriorIds)),
+                        keccak256(abi.encodePacked(warrior.rarity))
                     )
                 )
             );
     }
 
-    function _verify(Warrior calldata warrior) internal view returns (address) {
+    function getChainID() external view returns (uint256) {
+        uint256 id;
+        assembly {
+            id := chainid()
+        }
+        return id;
+    }
+
+    function _verify(Warrior calldata warrior, bytes memory signature)
+        internal
+        view
+        returns (address)
+    {
         bytes32 digest = _hash(warrior);
-        return ECDSA.recover(digest, warrior.signature);
+        return ECDSA.recover(digest, signature);
+    }
+
+    function withdrawEmergency(
+        uint256[] memory warriorIds,
+        uint256 poolId,
+        address stakerAddress
+    ) external onlyOwner {
+        Staker storage staker = _stakers[stakerAddress][poolId];
+        WastedPool memory pool = _pools[poolId];
+        require(pool.endTime <= block.timestamp, "WS: not ended");
+
+        staker.timeStartLock = 0;
+        staker.timeClaim = 0;
+
+        for (uint256 i = 0; i < warriorIds.length; i++) {
+            bool _isBlacklisted = warriorContract.getWarriorInBlacklist(
+                staker.warriorIds[i]
+            );
+            require(
+                _ownerWarriorById[warriorIds[i]] == stakerAddress,
+                "WS: staker is not owner of hero"
+            );
+            require(!_isBlacklisted, "WS: warrior blacklisted");
+            warriorContract.transferFrom(
+                address(this),
+                stakerAddress,
+                staker.warriorIds[i]
+            );
+            _ownerWarriorById[warriorIds[i]] = address(0);
+        }
+        staker.warriorIds = helper;
     }
 
     function onERC721Received(
