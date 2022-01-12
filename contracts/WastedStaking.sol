@@ -26,6 +26,7 @@ contract WastedStaking is
     string private constant SIGNING_DOMAIN = "LazyStaking-WastedWarrior";
     string private constant SIGNATURE_VERSION = "1";
     mapping(uint256 => address) public _ownerWarriorById;
+    mapping(uint256 => bool) public warriorsStaked;
 
     struct Staker {
         uint256 timeStartLock;
@@ -79,20 +80,20 @@ contract WastedStaking is
 
     function addPool(
         string memory name,
-        uint256 lockedMonths,
+        uint256 lockedTimes,
         uint256 totalRewards,
-        uint256 maxWarriorPerAddress,
+        uint256 requiredWarriors,
         uint256 endTime,
         RarityPool rarityPool
     ) external onlyOwner {
-        require(lockedMonths > 0 && totalRewards > 0, "WS: invalid info");
+        require(lockedTimes > 0 && totalRewards > 0, "WS: invalid info");
         _pools.push(
             WastedPool(
                 name,
-                lockedMonths,
+                lockedTimes,
                 totalRewards,
                 0,
-                maxWarriorPerAddress,
+                requiredWarriors,
                 endTime,
                 rarityPool
             )
@@ -101,9 +102,9 @@ contract WastedStaking is
         emit Pool(
             poolId,
             name,
-            lockedMonths,
+            lockedTimes,
             totalRewards,
-            maxWarriorPerAddress,
+            requiredWarriors,
             endTime,
             rarityPool
         );
@@ -112,31 +113,31 @@ contract WastedStaking is
     function updatePool(
         uint256 poolId,
         string memory name,
-        uint256 lockedMonths,
+        uint256 lockedTimes,
         uint256 totalRewards,
-        uint256 maxWarriorPerAddress,
+        uint256 requiredWarriors,
         uint256 endTime,
         RarityPool rarityPool
     ) external onlyOwner {
         WastedPool storage pool = _pools[poolId];
         require(
-            lockedMonths > 0 && totalRewards >= pool.staked,
+            lockedTimes > 0 && totalRewards >= pool.staked,
             "WS: invalid info"
         );
 
         pool.name = name;
-        pool.lockedMonths = lockedMonths;
+        pool.lockedTimes = lockedTimes;
         pool.totalRewards = totalRewards;
-        pool.maxWarriorPerAddress = maxWarriorPerAddress;
+        pool.requiredWarriors = requiredWarriors;
         pool.endTime = endTime;
         pool.rarityPool = rarityPool;
 
         emit Pool(
             poolId,
             name,
-            lockedMonths,
+            lockedTimes,
             totalRewards,
-            maxWarriorPerAddress,
+            requiredWarriors,
             endTime,
             rarityPool
         );
@@ -157,22 +158,27 @@ contract WastedStaking is
             "WS: Signature invalid or unauthorized"
         );
 
-        require(block.timestamp <= pool.endTime, "WS: pool ended");
+        require(
+            block.timestamp.add(pool.lockedTimes) <= pool.endTime,
+            "WS: pool ended"
+        );
 
         require(
-            warriorIds.length <= pool.maxWarriorPerAddress,
-            "WS: out of range"
+            warriorIds.length == pool.requiredWarriors &&
+                warriorIds.length == warrior.rarity.length,
+            "WS: not enough"
         );
         require(
             staker.timeStartLock == 0 && staker.timeClaim == 0,
             "WS: address used"
         );
-        require(pool.staked <= pool.totalRewards, "WS: full");
+        require(pool.staked < pool.totalRewards, "WS: full");
 
         staker.timeStartLock = block.timestamp;
-        staker.timeClaim = block.timestamp.add(pool.lockedMonths);
+        staker.timeClaim = block.timestamp.add(pool.lockedTimes);
 
         for (uint256 i = 0; i < warriorIds.length; i++) {
+            require(!warriorsStaked[warriorIds[i]], "WS: warriors staked");
             if (uint256(pool.rarityPool) == 1) {
                 require(warrior.rarity[i] == 4, "WS: invalid warrior");
             }
@@ -191,9 +197,10 @@ contract WastedStaking is
                 warriorIds[i]
             );
             staker.warriorIds.push(warriorIds[i]);
-            pool.staked = pool.staked.add(1);
             _ownerWarriorById[warriorIds[i]] = msg.sender;
         }
+
+        pool.staked = pool.staked.add(1);
 
         emit Staked(warriorIds, poolId, msg.sender);
     }
@@ -222,10 +229,12 @@ contract WastedStaking is
                 msg.sender,
                 staker.warriorIds[i]
             );
-            pool.staked = pool.staked.sub(1);
+
             _ownerWarriorById[warriorIds[i]] = address(0);
         }
+
         staker.warriorIds = helper;
+        pool.staked = pool.staked.sub(1);
 
         emit Unstaked(warriorIds, poolId, msg.sender);
     }
@@ -244,15 +253,16 @@ contract WastedStaking is
         staker.timeStartLock = 0;
         staker.timeClaim = 0;
 
-        for (uint256 i = 0; i < staker.warriorIds.length; i++) {
+        for (uint256 i = 0; i < warriorIds.length; i++) {
             bool _isBlacklisted = warriorContract.getWarriorInBlacklist(
-                staker.warriorIds[i]
+                warriorIds[i]
             );
             require(!_isBlacklisted, "WS: warrior blacklisted");
+            warriorsStaked[warriorIds[i]] = true;
             warriorContract.transferFrom(
                 address(this),
                 msg.sender,
-                staker.warriorIds[i]
+                warriorIds[i]
             );
             _ownerWarriorById[warriorIds[i]] = address(0);
         }

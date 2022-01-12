@@ -11,9 +11,9 @@ interface IWastedStaking {
     event Pool(
         uint256 poolId,
         string name,
-        uint256 lockedMonths,
+        uint256 lockedTimes,
         uint256 totalRewards,
-        uint256 maxWarriorPerAddress,
+        uint256 requiredWarriors,
         uint256 endTime,
         RarityPool rarityPool
     );
@@ -31,10 +31,10 @@ interface IWastedStaking {
 
     struct WastedPool {
         string name;
-        uint256 lockedMonths;
+        uint256 lockedTimes;
         uint256 totalRewards;
         uint256 staked;
-        uint256 maxWarriorPerAddress;
+        uint256 requiredWarriors;
         uint256 endTime;
         RarityPool rarityPool;
     }
