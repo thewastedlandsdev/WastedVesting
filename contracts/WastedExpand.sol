@@ -2,39 +2,47 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "./lib/ERC1155.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "./lib/ERC1155Upgradeable.sol";
 import "./interfaces/IWastedExpand.sol";
 
-contract WastedExpand is ERC1155, IWastedExpand, AccessControl {
-    using Address for address;
+contract WastedExpand is
+    ERC1155Upgradeable,
+    IWastedExpand,
+    AccessControlUpgradeable
+{
+    using AddressUpgradeable for address;
 
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
-    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+    bytes32 public MINTER_ROLE;
+    bytes32 public CONTROLLER_ROLE;
+    bytes32 public OPERATOR_ROLE;
 
     // Mapping from item to its information.
     WastedItem[] private _items;
 
-    constructor(string memory _uri) ERC1155(_uri) {
+    function initialize(string memory _uri) public initializer {
+        __ERC1155_init(_uri);
+        __AccessControl_init();
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        MINTER_ROLE = keccak256("MINTER_ROLE");
+        CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
+        OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     }
 
     function setURI(string memory uri) external onlyRole(CONTROLLER_ROLE) {
         _setURI(uri);
     }
 
-    function createWastedItem(
-        string memory name,
-        uint16 maxSupply,
-        ItemType itemType
-    ) external override onlyRole(CONTROLLER_ROLE) {
-        require(maxSupply > 0, "WAE: invalid maxSupply");
-        _items.push(WastedItem(itemType, name, maxSupply, 0, 0));
+    function createWastedItem(string memory name, ItemType itemType)
+        external
+        override
+        onlyRole(CONTROLLER_ROLE)
+    {
+        _items.push(WastedItem(itemType, name, 0, 0));
         uint256 itemId = _items.length - 1;
 
-        emit ItemCreated(itemId, name, maxSupply, itemType);
+        emit ItemCreated(itemId, name, itemType);
     }
 
     function claim(
@@ -42,7 +50,7 @@ contract WastedExpand is ERC1155, IWastedExpand, AccessControl {
         uint256[] memory itemIds,
         uint16[] memory amount
     ) public override onlyRole(MINTER_ROLE) {
-        for(uint i = 0; i < itemIds.length; i++) {
+        for (uint256 i = 0; i < itemIds.length; i++) {
             _claim(account, itemIds[i], amount[i]);
         }
     }
@@ -53,11 +61,6 @@ contract WastedExpand is ERC1155, IWastedExpand, AccessControl {
         uint16 amount
     ) private {
         WastedItem storage item = _items[itemId];
-
-        require(
-            item.minted + amount <= item.maxSupply,
-            "WAE: max supply reached"
-        );
 
         _balances[itemId][account] += amount;
         item.minted += amount;
@@ -108,21 +111,11 @@ contract WastedExpand is ERC1155, IWastedExpand, AccessControl {
         return _items[itemId].itemType;
     }
 
-    function isOutOfStock(uint256 itemId, uint16 amount)
-        external
-        view
-        override
-        returns (bool)
-    {
-        WastedItem memory item = _items[itemId];
-        return item.minted + amount > item.maxSupply;
-    }
-
     function supportsInterface(bytes4 interfaceId)
         public
         view
         virtual
-        override(ERC1155, AccessControl)
+        override(ERC1155Upgradeable, AccessControlUpgradeable)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

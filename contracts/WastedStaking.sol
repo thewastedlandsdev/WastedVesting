@@ -164,9 +164,9 @@ contract WastedStaking is
         );
 
         require(
-            warriorIds.length == pool.requiredWarriors &&
+            warriorIds.length.mod(pool.requiredWarriors) == 0 &&
                 warriorIds.length == warrior.rarity.length,
-            "WS: not enough"
+            "WS: invalid length"
         );
         require(
             staker.timeStartLock == 0 && staker.timeClaim == 0,
@@ -179,8 +179,11 @@ contract WastedStaking is
 
         for (uint256 i = 0; i < warriorIds.length; i++) {
             require(!warriorsStaked[warriorIds[i]], "WS: warriors staked");
+
             if (uint256(pool.rarityPool) == 1) {
                 require(warrior.rarity[i] == 4, "WS: invalid warrior");
+            } else {
+                require(warrior.rarity[i] < 4, "WS: invalid warrior");
             }
             uint256 _isListing = warriorContract.getWarriorListing(
                 warriorIds[i]

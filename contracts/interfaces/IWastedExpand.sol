@@ -9,12 +9,7 @@ interface IWastedExpand {
         BACKGROUND,
         TEXTURE
     } // 3 types of expand.
-    event ItemCreated(
-        uint256 indexed itemId,
-        string name,
-        uint16 maxSupply,
-        ItemType itemType
-    );
+    event ItemCreated(uint256 indexed itemId, string name, ItemType itemType);
     event ItemClaimed(
         address indexed account,
         uint256 indexed itemId,
@@ -24,7 +19,6 @@ interface IWastedExpand {
     struct WastedItem {
         ItemType itemType;
         string name;
-        uint16 maxSupply;
         uint16 minted;
         uint16 burnt;
     }
@@ -45,21 +39,9 @@ interface IWastedExpand {
     ) external;
 
     /**
-     * @notice Check if item is out of stock.
-     */
-    function isOutOfStock(uint256 itemId, uint16 amount)
-        external
-        view
-        returns (bool);
-
-    /**
      * @notice Create an wasted item.
      */
-    function createWastedItem(
-        string memory name,
-        uint16 maxSupply,
-        ItemType itemType
-    ) external;
+    function createWastedItem(string memory name, ItemType itemType) external;
 
     /**
      * @notice Returns ERC1155 equipment back to the owner.
