@@ -1,20 +1,25 @@
 {
   "manifestVersion": "3.2",
   "admin": {
-    "address": "0xd33f47ce1c8Fd30c903fcF57f047a4430473B9b0",
-    "txHash": "0x32bf9bdfebf67febb3a1a2b2dc463fdd7fd98d1eac6d82b3a033c0332b40e76a"
+    "address": "0x24186dF9d0502e6373552B141d3efe8894DaDbb2",
+    "txHash": "0x0b11adc3e8d6aba96bde79a0949b4ba4af4f814e614d4f2bd650ee253af66548"
   },
   "proxies": [
     {
-      "address": "0x66F2fC3013FE09646db3553A4Fae9a9B68F05da0",
-      "txHash": "0x432d1c8a83ab9c3762e38d2fba3da1dbecf31a0720709601ef79a812f71e9080",
+      "address": "0x985E66C21a1A08Ab128c2c518beAe96923ce9c52",
+      "txHash": "0x0f2153274f97b76ef2c19a61285ac97b304157250c71dc541874cb48f951e891",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x9E8Cc1c864De068D46Ed5c8c9612Eb02d5b35BB9",
+      "txHash": "0x1b6a4923ec1cdfb10e7a5f31fd57cc20628bf808ee5787f0a56adbf66df8de9b",
       "kind": "transparent"
     }
   ],
   "impls": {
-    "3f93cf4f318a98979a2757df853e2459dc605ba5f4f82cc081a2e62871de0e97": {
-      "address": "0x5d2119262701643C2604c318BeF5Db34a260AeeC",
-      "txHash": "0x620a2c02171f16ef07a670cadf013f87a7519663b1f0e0af516c71c8953dee47",
+    "80fc0fce6b8858fc31937a42c34b1ae0182dcd2f00e631d113ac3d4b90a30cb1": {
+      "address": "0x793e22B68e453861f1f47d3Bcdc6734c89C04dB4",
+      "txHash": "0x6d77c34d4dbcb5a805333b7c76379f955eb051437850822cd55c810f6aac3e78",
       "layout": {
         "storage": [
           {
@@ -45,25 +50,25 @@
             "contract": "ERC1155Upgradeable",
             "label": "_balances",
             "type": "t_mapping(t_uint256,t_mapping(t_address,t_uint256))",
-            "src": "../project:/contracts/lib/ERC1155Upgradeable.sol:32"
+            "src": "../project:/contracts/lib/ERC1155Upgradeable.sol:33"
           },
           {
             "contract": "ERC1155Upgradeable",
             "label": "_operatorApprovals",
             "type": "t_mapping(t_address,t_mapping(t_address,t_bool))",
-            "src": "../project:/contracts/lib/ERC1155Upgradeable.sol:35"
+            "src": "../project:/contracts/lib/ERC1155Upgradeable.sol:36"
           },
           {
             "contract": "ERC1155Upgradeable",
             "label": "_uri",
             "type": "t_string_storage",
-            "src": "../project:/contracts/lib/ERC1155Upgradeable.sol:38"
+            "src": "../project:/contracts/lib/ERC1155Upgradeable.sol:39"
           },
           {
             "contract": "ERC1155Upgradeable",
             "label": "__gap",
             "type": "t_array(t_uint256)47_storage",
-            "src": "../project:/contracts/lib/ERC1155Upgradeable.sol:594"
+            "src": "../project:/contracts/lib/ERC1155Upgradeable.sol:601"
           },
           {
             "contract": "AccessControlUpgradeable",

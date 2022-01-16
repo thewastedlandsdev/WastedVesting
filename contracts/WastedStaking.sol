@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IWastedWarrior.sol";
 import "./interfaces/IWastedStaking.sol";
 import "./utils/PermissionGroup.sol";
@@ -17,7 +18,8 @@ contract WastedStaking is
     IWastedStaking,
     IERC721Receiver,
     EIP712,
-    AccessControl
+    AccessControl,
+    ReentrancyGuard
 {
     using SafeMath for uint256;
 
@@ -40,6 +42,7 @@ contract WastedStaking is
     mapping(address => mapping(uint256 => Staker)) public _stakers;
     uint256 public feeClaim;
     uint256[] private helper;
+    mapping(uint256 => uint256) public _totalWarriorStaked;
 
     constructor(IWastedWarrior warriorAddress, uint256 feeClaim_)
         EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION)
@@ -147,7 +150,7 @@ contract WastedStaking is
         uint256 poolId,
         Warrior calldata warrior,
         bytes memory signature
-    ) external override {
+    ) external override nonReentrant {
         Staker storage staker = _stakers[msg.sender][poolId];
         WastedPool storage pool = _pools[poolId];
         uint256[] memory warriorIds = warrior.warriorIds;
@@ -201,14 +204,17 @@ contract WastedStaking is
             );
             staker.warriorIds.push(warriorIds[i]);
             _ownerWarriorById[warriorIds[i]] = msg.sender;
+            _totalWarriorStaked[poolId] = _totalWarriorStaked[poolId].add(1);
         }
 
-        pool.staked = pool.staked.add(1);
+        pool.staked = pool.staked.add(
+            warriorIds.length.div(pool.requiredWarriors)
+        );
 
         emit Staked(warriorIds, poolId, msg.sender);
     }
 
-    function unstake(uint256 poolId) external override {
+    function unstake(uint256 poolId) external override nonReentrant {
         Staker storage staker = _stakers[msg.sender][poolId];
         WastedPool storage pool = _pools[poolId];
         uint256[] memory warriorIds = staker.warriorIds;
@@ -234,15 +240,18 @@ contract WastedStaking is
             );
 
             _ownerWarriorById[warriorIds[i]] = address(0);
+            _totalWarriorStaked[poolId] = _totalWarriorStaked[poolId].sub(1);
         }
 
         staker.warriorIds = helper;
-        pool.staked = pool.staked.sub(1);
+        pool.staked = pool.staked.sub(
+            warriorIds.length.div(pool.requiredWarriors)
+        );
 
         emit Unstaked(warriorIds, poolId, msg.sender);
     }
 
-    function claim(uint256 poolId) external payable override {
+    function claim(uint256 poolId) external payable override nonReentrant {
         require(msg.value == feeClaim, "WS: not enough");
         Staker storage staker = _stakers[msg.sender][poolId];
         uint256[] memory warriorIds = staker.warriorIds;
