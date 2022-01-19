@@ -4,7 +4,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.so
 
 pragma solidity ^0.8.0;
 
-interface IWastedExpand is IERC1155Upgradeable {
+interface IWastedExpandOperator is IERC1155Upgradeable {
     // Event required.
     enum ItemType {
         FRAME,

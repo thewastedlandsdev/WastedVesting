@@ -9,26 +9,23 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpgradeable.sol";
 import "./interfaces/IWastedExpandCollab.sol";
 import "./utils/AcceptedTokenUpgradeable.sol";
+import "./interfaces/IWastedExpandMarket.sol";
 
-contract WastedExtendMarket is
+contract WastedExpandMarket is
     AcceptedTokenUpgradeable,
     ReentrancyGuardUpgradeable,
     AccessControlUpgradeable,
-    ERC1155HolderUpgradeable
+    ERC1155HolderUpgradeable,
+    IWastedExpandMarket
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
     using SafeMathUpgradeable for uint256;
     using EnumerableSet for EnumerableSet.UintSet;
 
-    struct BuyInfo {
-        uint256 amount;
-        uint256 price;
-    }
-
     uint256 public PERCENT;
     bytes32 public CONTROLLER_ROLE;
 
-    IWastedExpand public wastedExpand;
+    IWastedExpandOperator public wastedExpand;
 
     uint256 public marketFeeInPercent;
     uint256 public serviceFeeInToken;
@@ -38,7 +35,7 @@ contract WastedExtendMarket is
     mapping(address => EnumerableSet.UintSet) private balancesOf;
 
     function initialize(
-        IWastedExpand wastedExpand_,
+        IWastedExpandOperator wastedExpand_,
         uint256 marketFeeInPercent_,
         uint256 serviceFeeInToken_
     ) public initializer {
@@ -52,7 +49,7 @@ contract WastedExtendMarket is
         uint256 expandId,
         uint256 price,
         uint256 amount
-    ) external nonReentrant {
+    ) external override nonReentrant {
         require(price > 0, "WEM: invalid price");
 
         wastedExpand.safeTransferFrom(
@@ -68,9 +65,11 @@ contract WastedExtendMarket is
             expandId
         ].amount.add(amount);
         balancesOf[msg.sender].add(expandId);
+
+        emit Listing(expandId, price, amount, msg.sender);
     }
 
-    function delist(uint256 expandId) external nonReentrant {
+    function delist(uint256 expandId) external override nonReentrant {
         uint256 amount = expandsOnSale[msg.sender][expandId].amount;
 
         expandsOnSale[msg.sender][expandId].price = 0;
@@ -84,6 +83,8 @@ contract WastedExtendMarket is
             ""
         );
         balancesOf[msg.sender].remove(expandId);
+
+        emit Delist(expandId, msg.sender);
     }
 
     function buy(
@@ -91,7 +92,7 @@ contract WastedExtendMarket is
         address seller,
         uint256 amount,
         uint256 expectedPrice
-    ) external payable nonReentrant {
+    ) external payable override nonReentrant {
         uint256 price = expandsOnSale[seller][expandId].price * amount;
         address buyer = msg.sender;
 
@@ -101,6 +102,8 @@ contract WastedExtendMarket is
         require(msg.value == price, "WEM: not enough");
 
         _makeTransaction(expandId, buyer, seller, price, amount);
+
+        emit ExpandBought(expandId, buyer, seller, amount, price);
     }
 
     function offer(
@@ -108,7 +111,7 @@ contract WastedExtendMarket is
         uint256 offerPrice,
         address seller,
         uint256 amount
-    ) external payable nonReentrant {
+    ) external payable override nonReentrant {
         address buyer = msg.sender;
         uint256 currentOffer = expandsOffer[seller][expandId][buyer].price;
         bool needRefund = offerPrice < currentOffer;
@@ -127,13 +130,15 @@ contract WastedExtendMarket is
             (bool success, ) = buyer.call{value: returnedValue}("");
             require(success);
         }
+
+        emit ExpandOffered(expandId, buyer, seller, amount, offerPrice);
     }
 
     function acceptOffer(
         uint256 expandId,
         address buyer,
         uint256 expectedPrice
-    ) external nonReentrant {
+    ) external override nonReentrant {
         address seller = msg.sender;
         uint256 offeredPrice = expandsOffer[seller][expandId][buyer].price;
 
@@ -146,10 +151,13 @@ contract WastedExtendMarket is
         expandsOffer[seller][expandId][buyer].amount = 0;
 
         _makeTransaction(expandId, buyer, seller, offeredPrice, amount);
+
+        emit ExpandBought(expandId, buyer, seller, amount, offeredPrice);
     }
 
     function abortOffer(uint256 expandId, address seller)
         external
+        override
         nonReentrant
     {
         address caller = msg.sender;
@@ -162,6 +170,8 @@ contract WastedExtendMarket is
 
         (bool success, ) = caller.call{value: offerPrice}("");
         require(success);
+
+        emit ExpandOfferCanceled(expandId, seller, caller);
     }
 
     function _makeTransaction(
