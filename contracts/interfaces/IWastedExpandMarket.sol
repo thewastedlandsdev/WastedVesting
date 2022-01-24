@@ -45,15 +45,13 @@ interface IWastedExpandMarket {
     function buy(
         uint256 expandId,
         address seller,
-        uint256 amount,
         uint256 expectedPrice
     ) external payable;
 
     function offer(
         uint256 expandId,
         uint256 offerPrice,
-        address seller,
-        uint256 amount
+        address seller
     ) external payable;
 
     function acceptOffer(

@@ -30,7 +30,7 @@ contract WastedExpandMarket is
     uint256 public marketFeeInPercent;
     uint256 public serviceFeeInToken;
     mapping(address => mapping(uint256 => BuyInfo)) public expandsOnSale;
-    mapping(address => mapping(uint256 => mapping(address => BuyInfo)))
+    mapping(address => mapping(uint256 => mapping(address => uint256)))
         public expandsOffer;
     mapping(address => EnumerableSet.UintSet) private balancesOf;
 
@@ -90,16 +90,23 @@ contract WastedExpandMarket is
     function buy(
         uint256 expandId,
         address seller,
-        uint256 amount,
         uint256 expectedPrice
     ) external payable override nonReentrant {
-        uint256 price = expandsOnSale[seller][expandId].price * amount;
+        uint256 price = expandsOnSale[seller][expandId].price;
+        uint256 amount = expandsOnSale[seller][expandId].amount;
         address buyer = msg.sender;
+        uint256 currentOffer = expandsOffer[seller][expandId][buyer];
 
         require(buyer != seller);
-        require(price > 0, "Tunniverse: not on sale");
+        require(price > 0, "WEM: not on sale");
         require(price == expectedPrice);
         require(msg.value == price, "WEM: not enough");
+
+        if (currentOffer > 0) {
+            expandsOffer[seller][expandId][buyer] = 0;
+            (bool isTransferToBuyer, ) = buyer.call{value: currentOffer}("");
+            require(isTransferToBuyer);
+        }
 
         _makeTransaction(expandId, buyer, seller, price, amount);
 
@@ -109,20 +116,19 @@ contract WastedExpandMarket is
     function offer(
         uint256 expandId,
         uint256 offerPrice,
-        address seller,
-        uint256 amount
+        address seller
     ) external payable override nonReentrant {
         address buyer = msg.sender;
-        uint256 currentOffer = expandsOffer[seller][expandId][buyer].price;
+        uint256 currentOffer = expandsOffer[seller][expandId][buyer];
         bool needRefund = offerPrice < currentOffer;
         uint256 requiredValue = needRefund ? 0 : offerPrice - currentOffer;
+        uint256 amount = expandsOnSale[seller][expandId].amount;
 
         require(buyer != seller, "WEM: cannot offer");
         require(offerPrice != currentOffer, "WEM: same offer");
         require(msg.value == requiredValue, "WEM: value invalid");
 
-        expandsOffer[seller][expandId][buyer].price = offerPrice;
-        expandsOffer[seller][expandId][buyer].amount = amount;
+        expandsOffer[seller][expandId][buyer] = offerPrice;
 
         if (needRefund) {
             uint256 returnedValue = currentOffer - offerPrice;
@@ -140,15 +146,14 @@ contract WastedExpandMarket is
         uint256 expectedPrice
     ) external override nonReentrant {
         address seller = msg.sender;
-        uint256 offeredPrice = expandsOffer[seller][expandId][buyer].price;
+        uint256 offeredPrice = expandsOffer[seller][expandId][buyer];
 
-        uint256 amount = expandsOffer[seller][expandId][buyer].amount;
+        uint256 amount = expandsOnSale[seller][expandId].amount;
 
         require(expectedPrice == offeredPrice);
         require(buyer != seller);
 
-        expandsOffer[seller][expandId][buyer].price = 0;
-        expandsOffer[seller][expandId][buyer].amount = 0;
+        expandsOffer[seller][expandId][buyer] = 0;
 
         _makeTransaction(expandId, buyer, seller, offeredPrice, amount);
 
@@ -161,12 +166,11 @@ contract WastedExpandMarket is
         nonReentrant
     {
         address caller = msg.sender;
-        uint256 offerPrice = expandsOffer[seller][expandId][caller].price;
+        uint256 offerPrice = expandsOffer[seller][expandId][caller];
 
         require(offerPrice > 0);
 
-        expandsOffer[seller][expandId][caller].price = 0;
-        expandsOffer[seller][expandId][caller].amount = 0;
+        expandsOffer[seller][expandId][caller] = 0;
 
         (bool success, ) = caller.call{value: offerPrice}("");
         require(success);
@@ -182,15 +186,9 @@ contract WastedExpandMarket is
         uint256 amount
     ) private {
         uint256 marketFee = (price * marketFeeInPercent) / PERCENT;
-        BuyInfo storage songInfo = expandsOnSale[seller][expandId];
-        if (amount < songInfo.amount) {
-            expandsOnSale[seller][expandId].amount = expandsOnSale[seller][
-                expandId
-            ].price.sub(amount);
-        } else {
-            expandsOnSale[seller][expandId].price = 0;
-            expandsOnSale[seller][expandId].amount = 0;
-        }
+
+        expandsOnSale[seller][expandId].price = 0;
+        expandsOnSale[seller][expandId].amount = 0;
 
         (bool isTransferToSeller, ) = seller.call{value: price - marketFee}("");
         require(isTransferToSeller);
