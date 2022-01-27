@@ -51,7 +51,9 @@ contract WastedExpandMarket is
         uint256 amount
     ) external override nonReentrant {
         require(price > 0, "WEM: invalid price");
-
+        uint256 totalAmount = expandsOnSale[msg.sender][expandId].amount.add(
+            amount
+        );
         wastedExpand.safeTransferFrom(
             msg.sender,
             address(this),
@@ -61,12 +63,10 @@ contract WastedExpandMarket is
         );
 
         expandsOnSale[msg.sender][expandId].price = price;
-        expandsOnSale[msg.sender][expandId].amount = expandsOnSale[msg.sender][
-            expandId
-        ].amount.add(amount);
+        expandsOnSale[msg.sender][expandId].amount = totalAmount;
         balancesOf[msg.sender].add(expandId);
 
-        emit Listing(expandId, price, amount, msg.sender);
+        emit Listing(expandId, price, totalAmount, msg.sender);
     }
 
     function delist(uint256 expandId) external override nonReentrant {
