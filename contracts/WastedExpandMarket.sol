@@ -30,7 +30,7 @@ contract WastedExpandMarket is
     uint256 public marketFeeInPercent;
     uint256 public serviceFeeInToken;
     mapping(address => mapping(uint256 => BuyInfo)) public expandsOnSale;
-    mapping(address => mapping(uint256 => mapping(address => uint256)))
+    mapping(address => mapping(uint256 => mapping(address => BuyInfo)))
         public expandsOffer;
     mapping(address => EnumerableSet.UintSet) private balancesOf;
 
@@ -95,7 +95,7 @@ contract WastedExpandMarket is
         uint256 price = expandsOnSale[seller][expandId].price;
         uint256 amount = expandsOnSale[seller][expandId].amount;
         address buyer = msg.sender;
-        uint256 currentOffer = expandsOffer[seller][expandId][buyer];
+        uint256 currentOffer = expandsOffer[seller][expandId][buyer].price;
 
         require(buyer != seller);
         require(price > 0, "WEM: not on sale");
@@ -103,7 +103,8 @@ contract WastedExpandMarket is
         require(msg.value == price, "WEM: not enough");
 
         if (currentOffer > 0) {
-            expandsOffer[seller][expandId][buyer] = 0;
+            expandsOffer[seller][expandId][buyer].price = 0;
+            expandsOffer[seller][expandId][buyer].amount = 0;
             (bool isTransferToBuyer, ) = buyer.call{value: currentOffer}("");
             require(isTransferToBuyer);
         }
@@ -119,7 +120,7 @@ contract WastedExpandMarket is
         address seller
     ) external payable override nonReentrant {
         address buyer = msg.sender;
-        uint256 currentOffer = expandsOffer[seller][expandId][buyer];
+        uint256 currentOffer = expandsOffer[seller][expandId][buyer].price;
         bool needRefund = offerPrice < currentOffer;
         uint256 requiredValue = needRefund ? 0 : offerPrice - currentOffer;
         uint256 amount = expandsOnSale[seller][expandId].amount;
@@ -128,7 +129,8 @@ contract WastedExpandMarket is
         require(offerPrice != currentOffer, "WEM: same offer");
         require(msg.value == requiredValue, "WEM: value invalid");
 
-        expandsOffer[seller][expandId][buyer] = offerPrice;
+        expandsOffer[seller][expandId][buyer].price = offerPrice;
+        expandsOffer[seller][expandId][buyer].amount = amount;
 
         if (needRefund) {
             uint256 returnedValue = currentOffer - offerPrice;
@@ -146,14 +148,19 @@ contract WastedExpandMarket is
         uint256 expectedPrice
     ) external override nonReentrant {
         address seller = msg.sender;
-        uint256 offeredPrice = expandsOffer[seller][expandId][buyer];
+        uint256 offeredPrice = expandsOffer[seller][expandId][buyer].price;
 
         uint256 amount = expandsOnSale[seller][expandId].amount;
 
+        require(
+            amount == expandsOffer[seller][expandId][buyer].amount,
+            "WEM: invalid offer"
+        );
         require(expectedPrice == offeredPrice);
         require(buyer != seller);
 
-        expandsOffer[seller][expandId][buyer] = 0;
+        expandsOffer[seller][expandId][buyer].price = 0;
+        expandsOffer[seller][expandId][buyer].amount = 0;
 
         _makeTransaction(expandId, buyer, seller, offeredPrice, amount);
 
@@ -166,11 +173,12 @@ contract WastedExpandMarket is
         nonReentrant
     {
         address caller = msg.sender;
-        uint256 offerPrice = expandsOffer[seller][expandId][caller];
+        uint256 offerPrice = expandsOffer[seller][expandId][caller].price;
 
         require(offerPrice > 0);
 
-        expandsOffer[seller][expandId][caller] = 0;
+        expandsOffer[seller][expandId][caller].price = 0;
+        expandsOffer[seller][expandId][caller].amount = 0;
 
         (bool success, ) = caller.call{value: offerPrice}("");
         require(success);
