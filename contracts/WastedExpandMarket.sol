@@ -23,7 +23,6 @@ contract WastedExpandMarket is
     using EnumerableSet for EnumerableSet.UintSet;
 
     uint256 public PERCENT;
-    bytes32 public CONTROLLER_ROLE;
 
     IWastedExpandOperator public wastedExpand;
 
@@ -71,7 +70,7 @@ contract WastedExpandMarket is
 
     function delist(uint256 expandId) external override nonReentrant {
         uint256 amount = expandsOnSale[msg.sender][expandId].amount;
-
+        require(amount > 0, "WEM: invalid");
         expandsOnSale[msg.sender][expandId].price = 0;
         expandsOnSale[msg.sender][expandId].amount = 0;
 

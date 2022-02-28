@@ -93,6 +93,17 @@ contract WastedExpand is
         }
     }
 
+    function transferFrom(
+        address from,
+        address to,
+        uint256 id,
+        uint256 amount,
+        bytes memory data
+    ) external onlyRole(OPERATOR_ROLE) {
+        require(from != address(0), "WAE: invalid address");
+        _safeTransferFrom(from, to, id, amount, data);
+    }
+
     function getItem(uint256 itemId)
         external
         view
