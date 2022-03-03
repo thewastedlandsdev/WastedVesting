@@ -15,11 +15,12 @@ contract WastedVesting is EIP712, AccessControl, ReentrancyGuard {
 
     struct Investor {
         uint256 totalClaim;
-        uint256 saleId;
+        uint256 claimId;
     }
 
     IERC20 public acceptedToken;
     mapping(address => Investor) public _investors;
+    mapping(uint256 => bool) public isClaimed;
     address private serverAddress;
     bytes32 public constant SERVER_ROLE = keccak256("SERVER_ROLE");
     bytes32 public constant CONTROLLER_ROLE = keccak256("CONTROLLER_ROLE");
@@ -49,15 +50,16 @@ contract WastedVesting is EIP712, AccessControl, ReentrancyGuard {
         uint256 totalClaim = investor.totalClaim;
         address signer = _verify(investor, signature);
 
+        require(!isClaimed[investor.claimId], "WAV: already claimed");
         require(
             hasRole(SERVER_ROLE, signer),
-            "WS: Signature invalid or unauthorized"
+            "WAV: Signature invalid or unauthorized"
         );
         require(
             acceptedToken.balanceOf(address(this)) > totalClaim,
             "WAV: sufficient balance"
         );
-
+        isClaimed[investor.claimId] = true;
         acceptedToken.transfer(msg.sender, totalClaim);
         _investors[msg.sender] = investor;
     }
@@ -68,10 +70,10 @@ contract WastedVesting is EIP712, AccessControl, ReentrancyGuard {
                 keccak256(
                     abi.encode(
                         keccak256(
-                            "Investor(uint256 totalClaim,uint256 saleId)"
+                            "Investor(uint256 totalClaim,uint256 claimId)"
                         ),
                         keccak256(abi.encodePacked(investor.totalClaim)),
-                        keccak256(abi.encodePacked(investor.saleId))
+                        keccak256(abi.encodePacked(investor.claimId))
                     )
                 )
             );

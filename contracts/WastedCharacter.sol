@@ -57,7 +57,7 @@ contract WastedCharacter is
     }
 
     function setMaxMint(uint256 _newMaxMint) external onlyOwner {
-        require(_newMaxMint > _characters.length);
+        require(_newMaxMint >= _characters.length);
         maxMint = _newMaxMint;
     }
 

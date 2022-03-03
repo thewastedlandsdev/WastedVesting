@@ -38,7 +38,8 @@
      'truffle-plugin-verify'
    ],
    api_keys: {
-     bscscan: 'AR9AZVV32923FW4Y62CJHQPC144H259YHD'
+     bscscan: 'AR9AZVV32923FW4Y62CJHQPC144H259YHD',
+     etherscan: 'SVF9YZE7CK7221HK2K5XBUKTBYZFC46T4Z'
    },
    networks: {
      // Useful for testing. The `development` name is special - truffle uses it by default
@@ -72,17 +73,15 @@
        timeoutBlocks: 1,
        confirmations: 0,
      },
-     eth: {
-      provider: () => {
-        return new HDWalletProvider(process.env.PRIVATE_KEY, "https://mainnet.infura.io/v3/07d2a61dca4d4173808bb8fff72519bb")
-      },
+     mainnet: {
+      provider: () => new HDWalletProvider(process.env.PRIVATE_KEY, 'https://mainnet.infura.io/v3/07d2a61dca4d4173808bb8fff72519bb'),
       network_id: 1,
-      networkCheckTimeout: 1000000,
-      gas: 5500000,        // Ropsten has a lower block limit than mainnet
-      confirmations: 2,    // # of confs to wait between deployments. (default: 0)
-      timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
-      skipDryRun: true     // Skip dry run before migrations? (default: false for public nets )
-      },
+      gas: 6500000,           // Default gas to send per transaction
+      gasPrice: 60000000000,  // 10 gwei (default: 20 gwei)
+      confirmations: 0,       // # of confs to wait between deployments. (default: 0)
+      timeoutBlocks: 1,     // # of blocks before a deployment times out  (minimum/default: 50)
+      skipDryRun: true,        // Skip dry run before migrations? (default: false for public nets )
+    },
      // Another network with more advanced options...
      // advanced: {
      // port: 8777,             // Custom port
@@ -94,14 +93,14 @@
      // },
      // Useful for deploying to a public network.
      // NB: It's important to wrap the provider as a function.
-     // ropsten: {
-     // provider: () => new HDWalletProvider(mnemonic, `https://ropsten.infura.io/v3/YOUR-PROJECT-ID`),
-     // network_id: 3,       // Ropsten's id
-     // gas: 5500000,        // Ropsten has a lower block limit than mainnet
-     // confirmations: 2,    // # of confs to wait between deployments. (default: 0)
-     // timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
-     // skipDryRun: true     // Skip dry run before migrations? (default: false for public nets )
-     // },
+     ropsten: {
+     provider: () => new HDWalletProvider(process.env.PRIVATE_KEY, `https://ropsten.infura.io/v3/07d2a61dca4d4173808bb8fff72519bb`),
+     network_id: 3,       // Ropsten's id
+     gas: 5500000,        // Ropsten has a lower block limit than mainnet
+     confirmations: 2,    // # of confs to wait between deployments. (default: 0)
+     timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
+     skipDryRun: true     // Skip dry run before migrations? (default: false for public nets )
+     },
      // Useful for private networks
      // private: {
      // provider: () => new HDWalletProvider(mnemonic, `https://network.io`),
