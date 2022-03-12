@@ -23,3 +23,5 @@ blockchain/history
 .tern-port
 yarn.lock
 package-lock.json
+
+.idea/
