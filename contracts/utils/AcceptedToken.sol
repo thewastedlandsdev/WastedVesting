@@ -26,6 +26,14 @@ contract AcceptedToken is PermissionGroup {
         acceptedToken.safeTransferFrom(msg.sender, destAddr, amount);
     }
 
+    function _collectTokenAsPrice(uint256 amount, address destAddr) external {
+        require(
+            acceptedToken.balanceOf(msg.sender) >= amount,
+            "AcceptedToken: insufficient token balance"
+        );
+        acceptedToken.safeTransferFrom(msg.sender, destAddr, amount);
+    }
+
     /**
      * @dev Sets accepted token using in the ecosystem.
      */

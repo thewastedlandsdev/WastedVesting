@@ -6,10 +6,12 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpgradeable.sol";
 import "./interfaces/IWastedExpandCollab.sol";
 import "./utils/AcceptedTokenUpgradeable.sol";
 import "./interfaces/IWastedExpandMarket.sol";
+import "./utils/AcceptedTokenUpgradeable.sol";
 
 contract WastedExpandMarket is
     AcceptedTokenUpgradeable,
@@ -36,8 +38,10 @@ contract WastedExpandMarket is
     function initialize(
         IWastedExpandOperator wastedExpand_,
         uint256 marketFeeInPercent_,
-        uint256 serviceFeeInToken_
+        uint256 serviceFeeInToken_,
+        IERC20Upgradeable tokenAddress
     ) public initializer {
+        AcceptedTokenUpgradeable.initialize(tokenAddress);
         marketFeeInPercent = marketFeeInPercent_;
         serviceFeeInToken = serviceFeeInToken_;
         wastedExpand = wastedExpand_;
@@ -104,8 +108,7 @@ contract WastedExpandMarket is
         if (currentOffer > 0) {
             expandsOffer[seller][expandId][buyer].price = 0;
             expandsOffer[seller][expandId][buyer].amount = 0;
-            (bool isTransferToBuyer, ) = buyer.call{value: currentOffer}("");
-            require(isTransferToBuyer);
+            collectTokenAsPrice(currentOffer, buyer);
         }
 
         _makeTransaction(expandId, buyer, seller, price, amount);
@@ -134,8 +137,7 @@ contract WastedExpandMarket is
         if (needRefund) {
             uint256 returnedValue = currentOffer - offerPrice;
 
-            (bool success, ) = buyer.call{value: returnedValue}("");
-            require(success);
+            collectTokenAsPrice(returnedValue, buyer);
         }
 
         emit ExpandOffered(expandId, buyer, seller, amount, offerPrice);
@@ -197,11 +199,8 @@ contract WastedExpandMarket is
         expandsOnSale[seller][expandId].price = 0;
         expandsOnSale[seller][expandId].amount = 0;
 
-        (bool isTransferToSeller, ) = seller.call{value: price - marketFee}("");
-        require(isTransferToSeller);
-
-        (bool isTransferToTreasury, ) = owner().call{value: marketFee}("");
-        require(isTransferToTreasury);
+        collectTokenAsPrice(price - marketFee, seller);
+        collectTokenAsPrice(marketFee, owner());
 
         wastedExpand.transferFrom(address(this), buyer, expandId, amount, "");
     }
