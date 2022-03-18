@@ -181,8 +181,7 @@ contract WastedExpandMarket is
         expandsOffer[seller][expandId][caller].price = 0;
         expandsOffer[seller][expandId][caller].amount = 0;
 
-        (bool success, ) = caller.call{value: offerPrice}("");
-        require(success);
+        collectTokenAsPrice(offerPrice, caller);
 
         emit ExpandOfferCanceled(expandId, seller, caller);
     }
