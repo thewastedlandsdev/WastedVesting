@@ -32,6 +32,16 @@ contract WastedRenting is IERC721Receiver {
         emit WarriorListed(warriorId, percent);
     }
 
+    function setPercent(uint256 warriorId, uint256 percent) external {
+        require(
+            _warriorsOwner[warriorId] == msg.sender &&
+                _warriorsOwner[warriorId] != address(0),
+            "WR: invalid sender"
+        );
+        require(percent > 0 && percent < 100, "WR: invalid percent");
+        _warriorsListing[warriorId].percent = percent;
+    }
+
     function rent(uint256 warriorId) external {
         require(_warriorsOwner[warriorId] != address(0), "WR: Not listed");
         RentInfo storage rentInfo = _warriorsListing[warriorId];
@@ -55,7 +65,8 @@ contract WastedRenting is IERC721Receiver {
         address owner = _warriorsOwner[warriorId];
         require(owner == msg.sender, "WR: invalid sender");
         warriorContract.transferFrom(address(this), owner, warriorId);
-        _warriorsListing[warriorId] = 0;
+        _warriorsListing[warriorId].percent = 0;
+        _warriorsListing[warriorId].renter = address(0);
         _warriorsOwner[warriorId] = address(0);
 
         emit WarriorDelisted(warriorId);
