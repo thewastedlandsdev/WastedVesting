@@ -30,7 +30,9 @@ contract WastedExpandMarket is
 
     uint256 public marketFeeInPercent;
     uint256 public serviceFeeInToken;
-    mapping(address => mapping(uint256 => BuyInfo)) public expandsOnSale;
+    
+    mapping(uint256 => uint256) tradeIdToTokenId;
+    mapping(address => mapping(uint256 => BuyInfo)) public expandsOnSale; //owner => tokenId => amount && price
     mapping(address => mapping(uint256 => mapping(address => BuyInfo)))
         public expandsOffer;
     mapping(address => EnumerableSet.UintSet) private balancesOf;

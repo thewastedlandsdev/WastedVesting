@@ -99,7 +99,7 @@ contract WastedExpand is
         uint256 id,
         uint256 amount,
         bytes memory data
-    ) external onlyRole(OPERATOR_ROLE) {
+    ) external {
         require(from != address(0), "WAE: invalid address");
         _safeTransferFrom(from, to, id, amount, data);
     }

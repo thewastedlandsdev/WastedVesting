@@ -17,8 +17,7 @@ interface IWastedExpand {
     );
 
     struct WastedItem {
-        ItemType itemType;
-        string name;
+        uint256 typeId;
         uint16 minted;
         uint16 burnt;
     }
